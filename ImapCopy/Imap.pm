@@ -133,6 +133,7 @@ sub delete_folder {
 sub search_messages_in_folder {
     my $self = shift;
     my $folder = shift;
+    my %result =();
 
     ## Reconnect if needed
     unless ($self->{'imap_handler'}->IsConnected()) {
@@ -146,11 +147,16 @@ sub search_messages_in_folder {
 
     my @messages;
     unless (@messages = $self->{'imap_handler'}->search('ALL')) {
-	&do_log('error', 'Failed to search in folder %s: %s', $folder, $self->{'imap_handler'}->LastError);
-	return undef;
+    	&do_log('error', 'Failed to search in folder %s: %s', $folder, $self->{'imap_handler'}->LastError);
+    	return undef;
+    }
+
+    foreach my $message_id (@messages) {
+        my $message_content = $self->{'imap_handler'}->message_string($message_id);
+        ($message_content =~ /^From: ([^\n]*)$/ms) and $result{$message_id}{'from'} = $1;
     }
     
-    return @messages;
+    return %result;
 }
 
 ## Rename folder

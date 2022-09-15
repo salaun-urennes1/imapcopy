@@ -104,12 +104,12 @@ if ($options{'list_folders'}) {
     printf "Search messages\n";
     ## List messages in Folder
     my @messages;
-    unless (@messages = $src_imap->search_messages_in_folder($options{'src_folder'})) {
+    unless (%messages = $src_imap->search_messages_in_folder($options{'src_folder'})) {
 	do_log('error', "Failed to search on IMAP server '%s'", $src_imap->{'server'});
 	exit -1;
     }
     
-    printf Data::Dumper::Dumper(\@messages);
+    printf Data::Dumper::Dumper(\%messages);
     
 }elsif ($options{'migrate'}) {
     
