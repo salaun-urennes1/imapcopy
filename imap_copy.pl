@@ -19,6 +19,7 @@ use ImapCopy::Imap;
 use ImapCopy::Tools;
 use Data::Dumper;
 use Getopt::Long;
+use JSON;
 
 
 my %options;
@@ -50,7 +51,7 @@ unless (require $options{'config'}) {
 my %imap_servers;
 foreach my $server_name (keys %imap_config) {
     my $server_config = $imap_config{$server_name};
-    printf "Connect to IMAP server %s\n", $server_config->{'server'};
+    printf STDERR "Connect to IMAP server %s\n", $server_config->{'server'};
     $imap_servers{$server_name} = new ImapCopy::Imap(%{$server_config});
     
     unless (defined $imap_servers{$server_name}) {
@@ -105,7 +106,7 @@ if ($options{'list_folders'}) {
 	die "First set 'select_src';"
     }
 
-    printf "Search messages\n";
+    printf STDERR "Search messages\n";
     ## List messages in Folder
     my @messages;
     my @headers = split(',', $options{'headers'});
@@ -114,7 +115,7 @@ if ($options{'list_folders'}) {
         exit -1;
     }
     
-    printf Data::Dumper::Dumper(\%messages);
+    printf encode_json \%messages;
     
 }elsif ($options{'expunge'}) {
     unless ($options{'src_folder'}) {
