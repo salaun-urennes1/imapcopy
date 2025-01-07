@@ -4,7 +4,7 @@ our @EXPORT = qw();
 
 use Mail::IMAPClient;
 use ImapCopy::Tools;
-
+use Encode;
 
 ## Creates a new object
 sub new {
@@ -230,7 +230,11 @@ sub search_messages_in_folder {
     foreach my $message_id (@messages) {
         my $message_content = $self->{'imap_handler'}->message_string($message_id);
         foreach my $header (@{$headers}) {
-            ($message_content =~ /^$header: ([^\n]*)$/ms) and $result{$message_id}{$header} = $1;
+            if ($message_content =~ /^$header: ([^\n]*)$/ms) {
+                my $value = $1;
+                $value =~ s/\r//;
+                $result{$message_id}{$header} = Encode::decode("MIME-Header", $value);
+            }
         }
         
     }
