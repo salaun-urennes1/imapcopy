@@ -126,15 +126,91 @@ sub delete_folder {
 	return undef;
     }
     
-    return @messages;
+    return 1;
+}
+
+## Expunge folder
+sub expunge {
+    my $self = shift;
+    my $folder = shift;
+
+    ## Reconnect if needed
+    unless ($self->{'imap_handler'}->IsConnected()) {
+        $self->connect();
+    }
+
+    unless ($self->{'imap_handler'}->select($folder)) {
+        &do_log('error', 'Failed to select folder %s: %s', $folder, $self->{'imap_handler'}->LastError);
+        return undef;
+    }
+    
+    unless ($self->{'imap_handler'}->expunge()) {
+        &do_log('error', 'Failed to expunge folder %s: %s', $folder, $self->{'imap_handler'}->LastError);
+        return undef;
+    }
+    
+    return 1;
+}
+
+## Delete message
+sub delete_message {
+    my $self = shift;
+    my $folder = shift;
+    my $message_id = shift;
+
+    ## Reconnect if needed
+    unless ($self->{'imap_handler'}->IsConnected()) {
+        $self->connect();
+    }
+
+    unless ($self->{'imap_handler'}->select($folder)) {
+        &do_log('error', 'Failed to select folder %s: %s', $folder, $self->{'imap_handler'}->LastError);
+        return undef;
+    }
+
+    unless ($self->{'imap_handler'}->delete_message($message_id)) {
+        &do_log('error', 'Failed to delete message %s: %s', $message_id, $self->{'imap_handler'}->LastError);
+        return undef;
+    }
+    
+    return 1;
+}
+
+## Get message flags
+sub flags {
+    my $self = shift;
+    my $folder = shift;
+    my $message_id = shift;
+
+    ## Reconnect if needed
+    unless ($self->{'imap_handler'}->IsConnected()) {
+        $self->connect();
+    }
+
+    unless ($self->{'imap_handler'}->select($folder)) {
+        &do_log('error', 'Failed to select folder %s: %s', $folder, $self->{'imap_handler'}->LastError);
+        return undef;
+    }
+
+    unless (my $flags = $self->{'imap_handler'}->flags($message_id)) {
+        &do_log('error', 'Failed to get message flags for %s: %s', $message_id, $self->{'imap_handler'}->LastError);
+        return undef;
+    }
+    
+    return $flags;
 }
 
 ## Search messages in mailbox
 sub search_messages_in_folder {
     my $self = shift;
     my $folder = shift;
+    my $headers = shift;
     my %result =();
 
+    if (! defined $headers) {
+        $headers = ['From'];
+    }
+    
     ## Reconnect if needed
     unless ($self->{'imap_handler'}->IsConnected()) {
 	$self->connect();
@@ -153,7 +229,10 @@ sub search_messages_in_folder {
 
     foreach my $message_id (@messages) {
         my $message_content = $self->{'imap_handler'}->message_string($message_id);
-        ($message_content =~ /^From: ([^\n]*)$/ms) and $result{$message_id}{'from'} = $1;
+        foreach my $header (@{$headers}) {
+            ($message_content =~ /^$header: ([^\n]*)$/ms) and $result{$message_id}{$header} = $1;
+        }
+        
     }
     
     return %result;

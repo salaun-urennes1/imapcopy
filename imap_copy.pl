@@ -22,11 +22,15 @@ use Getopt::Long;
 
 
 my %options;
-&GetOptions(\%options, 'help', 'config=s','delete_folder','dest_folder=s','dest_server=s','list_folders','list_messages','migrate','rename_folder','src_server=s','src_folder=s');
+&GetOptions(\%options, 'help', 'config=s','delete_folder','delete_message','dest_folder=s','dest_server=s','expunge','flags','id=s','list_folders','list_messages','migrate','rename_folder','src_server=s','src_folder=s','headers=s');
 
 if ($options{'help'}) {
     printf "./imap_copy.pl --config=Conf.pm --list_folders --src_server=imap_src\n";
     printf "./imap_copy.pl --config=Conf.pm --list_messages --src_server=imap_src --src_folder=INBOX\n";
+    printf "./imap_copy.pl --config=Conf.pm --list_messages --src_server=imap_src --src_folder=INBOX --headers='From,Date,X-Renater-SpamState,X-Renater-SpamScore,X-Spam-Status'\n";
+    printf "./imap_copy.pl --config=Conf.pm --expunge --src_server=imap_src --src_folder=INBOX\n";
+    printf "./imap_copy.pl --config=Conf.pm --delete_message --id=xxx --src_server=imap_src --src_folder=Inbox\n";
+    printf "./imap_copy.pl --config=Conf.pm --flags --id=xxx --src_server=imap_src --src_folder=Inbox\n";
     printf "./imap_copy.pl --config=Conf.pm --migrate --src_server=imap_src --src_folder=Perso --dest_server=imap_dest --dest_folder=_Test\n";
     printf "./imap_copy.pl --config=Conf.pm --migrate --src_server=imap_src  --dest_server=imap_dest\n";
     printf "./imap_copy.pl --config=Conf.pm --rename_folder --src_server=imap_src --src_folder=Archives --dest_folder=_Archives\n";
@@ -104,13 +108,73 @@ if ($options{'list_folders'}) {
     printf "Search messages\n";
     ## List messages in Folder
     my @messages;
-    unless (%messages = $src_imap->search_messages_in_folder($options{'src_folder'})) {
-	do_log('error', "Failed to search on IMAP server '%s'", $src_imap->{'server'});
-	exit -1;
+    my @headers = split(',', $options{'headers'});
+    unless (%messages = $src_imap->search_messages_in_folder($options{'src_folder'}, \@headers)) {
+        do_log('error', "Failed to search on IMAP server '%s'", $src_imap->{'server'});
+        exit -1;
     }
     
     printf Data::Dumper::Dumper(\%messages);
     
+}elsif ($options{'expunge'}) {
+    unless ($options{'src_folder'}) {
+	die "Missing 'src_folder' option";
+    }
+    
+    unless (defined $src_imap) {
+	die "First set 'select_src';"
+    }
+
+    printf "Search messages\n";
+    ## List messages in Folder
+    my @messages;
+    unless ($src_imap->expunge($options{'src_folder'})) {
+	do_log('error', "Failed to expunge folder '%s' on IMAP server '%s'", $options{'src_folder'}, $src_imap->{'server'});
+	exit -1;
+    }
+    
+    printf "Done expunge on folder '%s'\n", $options{'src_folder'};
+    
+}elsif ($options{'delete_message'}) {
+    unless ($options{'id'}) {
+        die "Missing 'id' option";
+    }
+    
+    unless ($options{'src_folder'}) {
+        die "Missing 'src_folder' option";
+    }
+    
+    unless (defined $src_imap) {
+        die "First set 'select_src';"
+    }
+      
+    unless ($src_imap->delete_message($options{'src_folder'}, $options{'id'})) {
+        do_log('error', "Failed to delete message '%s' on IMAP server '%s'", $options{'id'}, $src_imap->{'server'});
+        exit -1;
+    }
+    
+    printf "Message %s deleted\n", $options{'id'};
+  
+}elsif ($options{'flags'}) {
+    unless ($options{'id'}) {
+        die "Missing 'id' option";
+    }
+    
+    unless ($options{'src_folder'}) {
+        die "Missing 'src_folder' option";
+    }
+    
+    unless (defined $src_imap) {
+        die "First set 'select_src';"
+    }
+      
+    unless (my $flags = $src_imap->flags($options{'src_folder'}, $options{'id'})) {
+        do_log('error', "Failed to get message flags for '%s' on IMAP server '%s'", $options{'id'}, $src_imap->{'server'});
+        exit -1;
+    }
+    
+    printf Data::Dumper::Dumper($flags);
+  
 }elsif ($options{'migrate'}) {
     
     unless (defined $src_imap) {
